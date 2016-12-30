@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+
+require "dgrep"
+require "thor"
+
+module Dgrep
+	class CLI < Thor
+		default_task :hello
+		def hello
+			p Dir.pwd
+		end
+
+	end
+end

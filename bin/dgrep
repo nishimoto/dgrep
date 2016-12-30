@@ -1,0 +1,224 @@
+#!/usr/bin/env ruby
+# require library
+require "dgrep"
+require "optparse"
+require "csv"
+require "pry"
+require "json"
+
+###################################################
+# over ride
+class Fixnum
+	def must(str, num)
+		if str == "be greater than"
+			if self <= num
+				raise "dgrep: You need #{num+1} or more argv\n"
+			end
+		end
+	end
+end
+
+class Array
+
+	def sum
+		self.inject{|sum, n| sum + n }
+	end
+
+	def mean
+		self.inject(0.0){|r,i| r+=i }/self.size.to_f
+	end
+
+	def median
+		self.size % 2 == 0 ? self[self.size/2 - 1, 2].inject(:+) / 2.0 : self[self.size/2]
+	end
+
+	def to_f
+		self.map { |e| e.to_i }
+	end
+
+	def to_f
+		self.map { |e| e.to_f }
+	end
+end
+
+
+###################################################
+# definitions.
+def optparse
+	hash = Hash.new()
+	hash2 = Hash.new() # 使用されているかどうか
+	opts = OptionParser.new
+
+	opts.on("-c") do |opt|
+		hash[:c] = true
+		hash2[:c] = true
+	end
+
+	opts.on("-d [VAL]") do |opt|
+		hash[:sep] = opt
+		hash2[:sep] = true
+	end
+
+	opts.on("-e [VAL]" ) do |opt|
+		hash[:e] = opt
+		hash2[:e] = true
+	end
+
+	opts.on("-h [VAL]") do |opt|
+		if opt == "false" || opt == "F"
+			hash[:h] = false
+		elsif opt == "true" || opt == "T"
+			hash[:h] = true
+		end
+		hash2[:h] = true
+	end
+
+	# quote
+	opts.on("-q [VAL]") do |opt|
+		hash[:q] = opt
+		hash2[:q] = true
+	end
+
+	opts.on("-i [VAL]") do |opt|
+		hash[:i] = opt
+		hash2[:i] = true
+	end
+
+	opts.on("--config") do |opt|
+		hash[:set_conf_mode] = true
+		hash2[:set_conf_mode] = true
+	end
+
+	opts.on("--get_config") do |opt|
+		hash2[:get_conf_mode] = true
+	end
+
+	opts.parse!
+
+	hash[:sep] ||= "\t"
+	# hash[:h]   ||= true
+	hash[:q]   ||= "\""
+	hash[:i]   ||= 0
+	return [hash, hash2]
+end
+
+def print_2d_array(arr_2d, conf)
+	arr_2d.each do |arr|
+		print CSV.generate_line(arr, col_sep: conf[:sep], quote_char: conf[:q])
+	end
+end
+
+def opfile_name(filename)
+	"#{filename.split(".")[0..-2].join(".")}.t.#{filename.split(".")[-1]}"
+end
+
+def tranpose_tsv(filename, sep)
+	CSV.open(opfile_name(filename), "w", col_sep: sep) do |csv|
+		CSV.read(filename, col_sep: sep).transpose.each do |arr|
+			csv << arr
+		end
+	end
+end
+
+def set_conf_to_config_file(conf_filename, conf)
+	File.open(conf_filename, "w") do |file|
+		str = JSON.dump(conf, file)
+	end
+end
+
+def get_conf_from_config_file(conf_filename, conf, conf_used)
+	hash = JSON.load(File.open(conf_filename, "r"))
+	hash.each do |k,v|
+		if !conf_used[k.to_sym]
+			conf[k.to_sym] = hash[k]
+			# as in  Json.dump convert false to "false" in set_conf_to_config_file function.
+			conf[k.to_sym] = false if hash[k] == "false"
+			conf[k.to_sym] = true if hash[k] == "true"
+		end
+	end
+	return conf
+end
+
+###################################################
+# opt parse
+conf, conf_used = optparse
+conf_filename = File.expand_path("../../lib/conf.json", __FILE__)
+if conf[:set_conf_mode]
+	set_conf_to_config_file(conf_filename, conf)
+	exit
+else
+	conf = get_conf_from_config_file(conf_filename, conf, conf_used)
+end
+
+if conf_used[:get_conf_mode]
+	p conf
+	exit
+end
+
+# This program need greped_str, grep_str
+greped_str_filename_array = []
+if conf[:e]
+	ARGV.length.must("be greater than", 0)
+	greped_str_filename_array = ARGV[0..-1]
+else
+	ARGV.length.must("be greater than", 1)
+	greped_str_filename_array = ARGV[1..-1]
+end
+
+grep_str = ARGV[0]
+
+###################################################
+# CSV.parse
+greped_str_filename_array.each do |filename|
+	# transpose tsv if -c option.
+	if conf[:c]
+		tranpose_tsv(filename, conf[:sep])
+		filename = opfile_name(filename)
+	end
+
+	# grep main function.
+	file = File.open(filename,"r")
+
+	# main array for output.
+	output_array = []
+
+	# process header
+	if conf[:h]
+		# p "hogehoge"
+		header_array = CSV.parse(file.gets, col_sep: conf[:sep], quote_char: conf[:q])
+		output_array.push header_array[0]
+	end
+
+	if conf[:i]
+		index = conf[:i].to_i
+		there_is_index = true
+	else
+		there_is_index = false
+	end
+
+	CSV.parse(file, col_sep: conf[:sep], quote_char: conf[:q]).each do |arr|
+		line = CSV.generate_line(arr, col_sep: conf[:sep], quote_char: conf[:q])
+
+		if there_is_index
+			rowname = arr[index]
+			colname = rowname
+			arr.delete_at(index)
+		end
+
+		if conf_used[:e]
+			if eval(conf[:e])
+				arr.insert(index, rowname) if there_is_index
+				output_array.push arr
+			end
+		else
+			if line.index(grep_str)
+				arr.insert(index, rowname) if there_is_index
+			 	output_array.push arr
+			end
+		end
+	end
+	if conf[:c]
+		output_array = output_array.transpose
+	end
+	print_2d_array(output_array, conf)
+end
