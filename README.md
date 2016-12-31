@@ -1,38 +1,56 @@
 # Dgrep
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/dgrep`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+dgrep is grep program for tsv or csv file.
 
 ## Installation
 
-Add this line to your application's Gemfile:
-
-```ruby
-gem 'dgrep'
-```
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
+install it yourself as:
 
     $ gem install dgrep
 
 ## Usage
 
-TODO: Write usage instructions here
+If there is this file
 
-## Development
+```:sample.txt
+	a	b	c
+d	1	2	3
+e	4	5	6
+f	7	8	9
+```
 
-After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+and you want to get this output,
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+
+```
+	a	b	c
+d	1	2	3
+```
+
+you only do
+
+```
+$ dgrep "d" sample.txt
+```
+
+if you wan to get this outpus,
+
+```
+	a
+d	1
+e	4
+f	7
+```
+
+you only do
+
+```
+dgrep -c "a" sample.txt
+```
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/dgrep.
+Bug reports and pull requests are welcome on GitHub at https://github.com/nishimoto/dgrep.
 
 
 ## License
